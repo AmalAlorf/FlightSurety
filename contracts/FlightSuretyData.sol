@@ -1,4 +1,4 @@
-pragma solidity >=0.4.21 <0.6.0;
+pragma solidity ^0.4.25;
 
 
 import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
@@ -12,18 +12,18 @@ contract FlightSuretyData {
 
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
-   ////////////////
-    mapping (address => bool) private registeredAirlines;
-    mapping (address => uint) private fundedAirlines;
-    mapping(address => uint256) private authorizedContracts;
+    mapping (address => bool) private registered_Airlines;
+    mapping (address => uint) private funded_Airlines;
+    mapping(address => uint256) private authorized_Contracts;
     address[] airlines;
-/////////////
-    mapping(address => uint) private accountBalance;
-    mapping(bytes32 =>address[]) private airlineinsurees;
 
-    mapping(address =>mapping(bytes32 => uint)) insuredamount;
-    mapping(address => uint) private fundedinsurance;
-    mapping(bytes32 =>mapping(address => uint)) insuredpayout;
+    mapping(address => uint) private passenger_Balance;
+    mapping(bytes32 =>address[]) private airline_Insurance ;
+
+    mapping(address =>mapping(bytes32 => uint)) insured_Amount;
+
+    mapping(bytes32 =>mapping(address => uint)) insured_Payout;
+    
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -41,7 +41,7 @@ contract FlightSuretyData {
                                 public 
     {
         contractOwner = msg.sender;
-        registeredAirlines[firstAirline] = true;
+        registered_Airlines[firstAirline] = true;
         airlines.push(firstAirline);
     }
 
@@ -74,13 +74,18 @@ contract FlightSuretyData {
 
      modifier requireIsCallerAirlineRegistered(address caller)
     {
-        require( registeredAirlines[caller] == true, "Caller not registered");
+        require( registered_Airlines[caller] == true, "Caller not registered");
         _;
     }
 
+     modifier requireisAirlineNotRegistered(address airline)
+    {
+        require( registered_Airlines[airline] == false, "Airline already registered");
+        _;
+    }
     modifier requireIsCallerAuthorized()
     {
-        require(authorizedContracts[msg.sender] == 1, "Caller is not contract owner");
+        require(authorized_Contracts[msg.sender] == 1, "Caller is not contract owner");
         _;
     } 
 
@@ -88,8 +93,24 @@ contract FlightSuretyData {
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
 
-    
-   
+    function isnotinsured(address airline,string flight,uint timestamp,address passenger)                     
+                    external
+                    view
+                    returns(bool)
+    {
+        bytes32 flightKey = getFlightKey(airline,flight,timestamp);
+        uint amount = insured_Amount[passenger][flightKey];
+        return false ;
+    }
+
+    function isAirlineRegistered(address airline)
+                            public
+                            view
+                            returns (bool)
+    {
+        return registered_Airlines[airline];
+    }
+
     /**
     * @dev Get operating status of contract
     *
@@ -122,32 +143,15 @@ contract FlightSuretyData {
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
-    
-     function authorizeCaller
-                            (
-                                address contractAddress
-                            )
-                            external
-                            requireContractOwner
-    {
-        authorizedContracts[contractAddress] = 1;
-       
-    }
+  
 
-    function deauthorizeCaller
-                            (
-                                address contractAddress
-                            )
-                            external
-                            requireContractOwner
-    {
-        delete authorizedContracts[contractAddress];
-    }
+
    /**
     * @dev Add an airline to the registration queue
     *      Can only be called from FlightSuretyApp contract
     *
-    */   
+    */
+
     function registerAirline
                             (  
                                 address airline 
@@ -155,24 +159,79 @@ contract FlightSuretyData {
                             external
                             requireIsOperational
                             requireIsCallerAuthorized  
+                            requireisAirlineNotRegistered(airline)                     
                             returns(bool success)
     {
         require(airline != address(0));    
-        registeredAirlines[airline] = true;
+        registered_Airlines[airline] = true;
         airlines.push(airline);
-        return registeredAirlines[airline];
+        return registered_Airlines[airline];
     }
 
+    function getAirlines()
+                external
+                view
+                returns(address[]) 
 
- function isAirlineRegistered(address airline)
-                            public
-                            view
-                            returns (bool)
+
     {
-        return registeredAirlines[airline];
+        return airlines;
     }
 
-      /**
+    
+    function getPassengerFunds(address passenger)
+                external
+                view
+                returns(uint) 
+
+
+    {
+        
+        return passenger_Balance[passenger];
+    }
+
+    function withdrawPassengerFunds(uint amount,address passenger)
+                                    external    
+                                    requireIsOperational                                     
+                                    requireIsCallerAuthorized                                               
+                                    returns(uint)
+    {
+        passenger_Balance[passenger] = passenger_Balance[passenger] - amount;
+        passenger.transfer(amount);
+
+        return passenger_Balance[passenger];
+    }
+
+    //////////
+function authorizeCaller
+                            (
+                                address contractAddress
+                            )
+                            external
+                            requireContractOwner
+    {
+        authorized_Contracts[contractAddress] = 1;
+       
+    }
+
+/**
+  * @dev airline can deposit funds in any amount  
+ */
+    function fundAirline
+                            (
+                                address airline,
+                                uint amount
+                            )
+                            external                            
+                            requireIsOperational
+                            requireIsCallerAuthorized
+                            requireIsCallerAirlineRegistered(airline)
+                           
+    {
+        funded_Airlines[airline] += amount;
+    }
+
+    /**
   * @dev to see how much fund an airline has  
  */
     function getAirlineFunds
@@ -188,8 +247,9 @@ contract FlightSuretyData {
                              returns(uint funds)
                            
     {
-        return (fundedAirlines[airline]);
+        return (funded_Airlines[airline]);
     }
+  
    /**
     * @dev Buy insurance for a flight. If a passenger sends more than 1 ether then the excess is returned.
     *
@@ -202,13 +262,12 @@ contract FlightSuretyData {
                             requireIsCallerAirlineRegistered(airline)                                                      
     {
         
-        bytes32 flightKey = getFlightKey(airline,flight,_timestamp);
-
+        bytes32 flightkey = getFlightKey(airline,flight,_timestamp);
        
-        airlineinsurees[flightKey].push(passenger);
+        airline_Insurance [flightkey].push(passenger);
        
-        insuredamount[passenger][flightKey]= amount;
-        insuredpayout[flightKey][passenger] = 0; 
+        insured_Amount[passenger][flightkey]= amount;
+        insured_Payout[flightkey][passenger] = 0; 
             
         
     } 
@@ -230,30 +289,29 @@ contract FlightSuretyData {
                                 
     {
         //get all the insurees
-        bytes32 flightKey = getFlightKey(airline,flight,timestamp);
+        bytes32 flight_Key = getFlightKey(airline,flight,timestamp);
         
-         address[] storage insurees = airlineinsurees[flightKey];
+         address[] storage insurees = airline_Insurance [flight_Key];
        
        
           for(uint8 i = 0; i < insurees.length; i++) {
              address passenger = insurees[i];
-             uint256 payout;
-            uint amount = insuredamount[passenger][flightKey];
+             uint256 payOut;
+            uint amount = insured_Amount[passenger][flight_Key];
             
             //check if already paid
-            uint paid = insuredpayout[flightKey][passenger];
+            uint paid = insured_Payout[flight_Key][passenger];
             if(paid == 0)
             {
-                payout = amount.mul(factor_numerator).div(factor_denominator);               
+                payOut = amount.mul(factor_numerator).div(factor_denominator);               
                
-                insuredpayout[flightKey][passenger] = payout;  
-                accountBalance[passenger] += payout;
+                insured_Payout[flight_Key][passenger] = payOut;  
+                passenger_Balance[passenger] += payOut;
                 
             }
               
         } 
     } 
-
 
 
     /**
@@ -270,9 +328,9 @@ contract FlightSuretyData {
                             requireIsCallerAuthorized
                             
     {
-        bytes32 flightKey = getFlightKey(airline,flight,ts);
-        insuredpayout[flightKey][passenger] = payout;  
-        accountBalance[passenger] += payout;
+        bytes32 flightkey = getFlightKey(airline,flight,ts);
+        insured_Payout[flightkey][passenger] = payout;  
+        passenger_Balance[passenger] += payout;
 
     }
 

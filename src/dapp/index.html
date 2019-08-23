@@ -7,6 +7,8 @@
     <title>FlightSurety</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+
 </head>
 
 <body>
@@ -22,12 +24,50 @@
 
         <div id="display-wrapper" class="top-20">
         </div>
-        <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number">
-            <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+        <div style="border:1px solid white" class="mb-2">
+            <h4>Purchase Insurance</h4>
+            <form class="form-inline mb-2">
+                <label for="passengers" class="mr-sm-2">Passenger</label>
+                <select class="form-control" id="passengers">                       
+                    </select>
+                <label for="insuredAirline" class="mr-sm-2">Airline</label>
+                <select class="form-control" id="insuredAirline">                       
+                </select>
+                <label for="flightNumber" class="mr-sm-2">Flight</label>
+                <select class="form-control" id="flightNumber"> 
+                    <option>A234</option>       
+                    <option>A236</option>    
+                    <option>A237</option>           
+                </select>
+                <label for="fundInsurance" class="mr-sm-2">Add Funds </label> <input type="text" class="form-control mb-2 mr-sm-1" id="fundInsurance">
+                <btn class="btn btn-primary" id="purchase-insurance">Purchase Insurance</btn>
+            </form>
         </div>
+        <div style="border:1px solid white" class="mb-2">
+            <h4>Withdraw</h4>
+            <form class="form-inline mb-2">
+                <label for="insuredPassengers" class="mr-sm-2">Passenger</label>
+                <select class="form-control" id="insuredPassengers">                       
+                    </select>
+
+                <label for="withdraw_Amount" class="mr-sm-2">Withdraw</label> <input type="text" class="form-control mb-2 mr-sm-3" id="withdraw_Amount">
+
+                <btn class="btn btn-primary" id="withdrawFunds">Withdraw Funds</btn>
+            </form>
+        </div>
+        <div>
+            <form class="form-inline mb-2">
+
+                <btn class="btn btn-primary ml-2" id="submit-oracle">Submit to Oracles</btn>
+
+            </form>
+        </div>
+        <div id="display-wrapper" class="top-20">
+        </div>
+
     </main>
 
+</html>
 </body>
 
 </html>
